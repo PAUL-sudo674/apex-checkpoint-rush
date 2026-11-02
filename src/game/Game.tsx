@@ -4,6 +4,8 @@ import { Scene } from "./Scene";
 import { newCar, newRace, fmtTime, C, type Input, type Events, type Phase } from "./sim";
 import { TRACK, N } from "./track";
 import { Sfx } from "./audio";
+import { useWebMCP } from "use-webmcp-tool";
+import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 
 type Hud = { speed: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number | undefined };
 const BEST_KEY = "apex-best-time";
@@ -104,6 +106,32 @@ export default function Game() {
   }, [start, togglePause]);
 
   const toggleSound = () => { const m = !muted; setMuted(m); sfx.current.setEnabled(!m); };
+
+  useWebMCP({
+    name: "get_race_status",
+    description: "Read the current race state: phase, lap, elapsed time, speed and best time.",
+    annotations: { readOnlyHint: true },
+    execute: () => runWebMCPTool("get_race_status", () =>
+      `Phase: ${phase}. Lap ${hud.lap}/${C.LAPS}. Time ${fmtTime(hud.time)}. Speed ${Math.round(Math.abs(hud.speed) * 3.6)} km/h. Best: ${best != null ? fmtTime(best) : "none"}.`),
+  });
+  useWebMCP({
+    name: "start_race",
+    description: "Start (or restart) a race from the countdown.",
+    execute: () => runWebMCPTool("start_race", () => { start(); return "Race starting."; }),
+  });
+  useWebMCP({
+    name: "set_paused",
+    description: "Pause or resume the current race.",
+    inputSchema: { type: "object", properties: { paused: { type: "boolean", description: "true to pause, false to resume." } }, required: ["paused"] },
+    execute: ({ paused }: { paused: boolean }) => runWebMCPTool("set_paused", () => {
+      if (typeof paused !== "boolean") throw new Error("paused must be true or false.");
+      const p = race.current.phase;
+      if (paused && (p === "racing" || p === "countdown")) togglePause();
+      else if (!paused && p === "paused") togglePause();
+      else if (paused ? p !== "paused" : true) throw new Error("No race in progress to change.");
+      return paused ? "Race paused." : "Race resumed.";
+    }),
+  });
 
   const [mx, my] = mapPt(hud.x, hud.z);
   const cdNum = Math.ceil(hud.cd - 0.5);
