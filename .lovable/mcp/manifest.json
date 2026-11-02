@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "sdk_version": "3.4.0",
+  "path": "/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "apex-street-racer",
+      "version": "0.1.0",
+      "title": "Apex Street Racer"
+    },
+    "tools": [
+      {
+        "name": "get_game_info",
+        "title": "Get game info",
+        "description": "Describe Apex Street Racer: track length, laps, checkpoints, top speed and controls.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {},
+          "additionalProperties": false
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
