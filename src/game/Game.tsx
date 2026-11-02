@@ -158,7 +158,7 @@ export default function Game() {
 
       {/* Speedometer */}
       {inRace && (
-        <div className="hud-panel absolute bottom-4 right-3 w-40 px-4 py-3 text-right sm:bottom-6 sm:right-6 sm:w-52 touch:bottom-40">
+        <div className="hud-panel absolute bottom-4 right-3 w-40 px-4 py-3 text-right sm:bottom-6 sm:right-6 sm:w-52 landscape-touch:bottom-28">
           <div className="font-display text-5xl font-bold leading-none tabular-nums sm:text-6xl">{Math.round(hud.speed)}</div>
           <div className="hud-label mt-1">km/h</div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
