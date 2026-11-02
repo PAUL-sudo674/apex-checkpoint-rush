@@ -196,6 +196,16 @@ export default function Game() {
       {/* Touch controls */}
       {inRace && phase !== "paused" && <TouchControls input={input} />}
 
+      {/* Rotate gate: portrait touch screens */}
+      {inRace && (
+        <div className="rotate-gate absolute inset-0 z-20 flex-col items-center justify-center gap-5 text-center overlay-bg">
+          <RotateIcon />
+          <h2 className="font-display text-3xl font-bold tracking-widest">ROTATE YOUR DEVICE</h2>
+          <p className="max-w-xs text-sm text-muted-foreground">Apex Street Racer plays in landscape. Turn your phone sideways to keep racing.</p>
+          <button className="btn-ghost-race" onClick={togglePause}>Pause</button>
+        </div>
+      )}
+
       {/* Menu */}
       {phase === "menu" && (
         <Overlay>
@@ -287,6 +297,14 @@ function TouchControls({ input }: { input: React.MutableRefObject<Input> }) {
     </div>
   );
 }
+
+const RotateIcon = () => (
+  <svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" className="rotate-icon text-primary">
+    <rect x="8" y="3" width="8" height="18" rx="2" />
+    <path d="M4 9.5a9 9 0 0 1 2.4-4.6" />
+    <path d="M3.8 5.8 3.6 8.6 6.3 8.2" />
+  </svg>
+);
 
 const SpeakerOn = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 5 6 9H2v6h4l5 4V5z" /><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14" /></svg>
