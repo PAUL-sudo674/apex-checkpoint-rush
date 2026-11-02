@@ -10,7 +10,7 @@ export default defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: () => {
     const pts = TRACK.pts;
-    const lengthM = Math.round(pts[pts.length - 1].d);
+    const lengthM = Math.round(pts[pts.length - 1]?.d ?? 0);
     const info = {
       title: "Apex Street Racer",
       trackLengthMeters: lengthM,
