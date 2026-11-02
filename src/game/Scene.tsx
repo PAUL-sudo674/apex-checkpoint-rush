@@ -28,7 +28,7 @@ function rng(seed: number) {
 function ribbon(a: number, b: number, vLen: number, y: number) {
   const pos: number[] = [], uv: number[] = [], idx: number[] = [];
   for (let i = 0; i <= N; i++) {
-    const p = TRACK.pts[i % N];
+    const p = TRACK.pts[i % N]!;
     const d = i === N ? TRACK.length : p.d;
     pos.push(p.x + p.nx * a, y, p.z + p.nz * a, p.x + p.nx * b, y, p.z + p.nz * b);
     uv.push(0, d / vLen, 1, d / vLen);
@@ -78,7 +78,7 @@ function Track() {
 }
 
 function StartGantry() {
-  const p = TRACK.pts[0];
+  const p = TRACK.pts[0]!;
   const tex = useMemo(() => canvasTex(256, 32, (g) => {
     for (let x = 0; x < 32; x++) for (let y = 0; y < 4; y++) {
       g.fillStyle = (x + y) % 2 ? "#111" : "#eee"; g.fillRect(x * 8, y * 8, 8, 8);
@@ -122,27 +122,27 @@ function Scenery() {
     const r = rng(7);
     const clear = (x: number, z: number, min: number) => {
       for (let i = 0; i < N; i += 3) {
-        const p = TRACK.pts[i];
+        const p = TRACK.pts[i]!;
         if ((p.x - x) ** 2 + (p.z - z) ** 2 < min * min) return false;
       }
       return true;
     };
-    const trees: number[][] = [], blds: number[][] = [], lamps: number[][] = [];
+    const trees: [number, number, number][] = [], blds: [number, number, number, number, number, number][] = [], lamps: [number, number][] = [];
     for (let k = 0; k < 900 && trees.length < 260; k++) {
-      const p = TRACK.pts[Math.floor(r() * N)];
+      const p = TRACK.pts[Math.floor(r() * N)]!;
       const s = r() < 0.5 ? -1 : 1, off = HALF + 6 + r() * 40;
       const x = p.x + p.nx * off * s, z = p.z + p.nz * off * s;
       if (clear(x, z, HALF + 5)) trees.push([x, z, 0.8 + r() * 0.9]);
     }
     for (let k = 0; k < 600 && blds.length < 90; k++) {
-      const p = TRACK.pts[Math.floor(r() * N)];
+      const p = TRACK.pts[Math.floor(r() * N)]!;
       const s = r() < 0.5 ? -1 : 1, off = HALF + 40 + r() * 70;
       const x = p.x + p.nx * off * s, z = p.z + p.nz * off * s;
       const w = 10 + r() * 14, h = 12 + r() * 50;
       if (clear(x, z, HALF + w)) blds.push([x, z, w, h, 10 + r() * 14, r() * Math.PI]);
     }
     for (let i = 0; i < N; i += 16) {
-      const p = TRACK.pts[i];
+      const p = TRACK.pts[i]!;
       const s = (i / 16) % 2 ? 1 : -1, off = HALF + 2.6;
       lamps.push([p.x + p.nx * off * s, p.z + p.nz * off * s]);
     }

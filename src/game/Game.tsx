@@ -150,7 +150,7 @@ export default function Game() {
         <div className="hud-panel absolute right-3 top-20 hidden p-2 sm:block sm:right-5">
           <svg width={MAP_W} height={MAP_H}>
             <polygon points={MAP_PATH} className="fill-none stroke-muted-foreground" strokeWidth={4} strokeLinejoin="round" />
-            <circle cx={mapPt(TRACK.pts[0].x, TRACK.pts[0].z)[0]} cy={mapPt(TRACK.pts[0].x, TRACK.pts[0].z)[1]} r={3} className="fill-foreground" />
+            <circle cx={mapPt(TRACK.pts[0]!.x, TRACK.pts[0]!.z)[0]} cy={mapPt(TRACK.pts[0]!.x, TRACK.pts[0]!.z)[1]} r={3} className="fill-foreground" />
             <circle cx={mx} cy={my} r={5} className="fill-primary" />
           </svg>
         </div>

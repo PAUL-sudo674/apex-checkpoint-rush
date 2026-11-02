@@ -15,7 +15,7 @@ export type Race = {
 export type Events = { wall?: boolean; cp?: boolean; lap?: boolean; finished?: boolean };
 
 export function newCar(): Car {
-  const p = TRACK.pts[N - 6];
+  const p = TRACK.pts[N - 6]!;
   return { x: p.x, z: p.z, h: Math.atan2(p.tx, p.tz), speed: 0, idx: N - 6, steer: 0, wallT: 0 };
 }
 export function newRace(): Race {
@@ -56,7 +56,7 @@ export function step(car: Car, race: Race, input: Input, dt: number): Events {
 
   // boundaries
   car.idx = nearest(car.x, car.z, car.idx);
-  const p = TRACK.pts[car.idx];
+  const p = TRACK.pts[car.idx]!;
   const off = (car.x - p.x) * p.nx + (car.z - p.z) * p.nz;
   const lim = HALF + 1.4 - C.CAR_HALF_W;
   car.wallT = Math.max(0, car.wallT - dt);

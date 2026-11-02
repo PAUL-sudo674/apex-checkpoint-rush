@@ -22,12 +22,12 @@ function build() {
   for (let i = 0; i < N; i++) {
     const p = curve.getPointAt(i / N);
     const t = curve.getTangentAt(i / N);
-    if (i > 0) d += Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z);
+    if (i > 0) d += Math.hypot(p.x - pts[i - 1]!.x, p.z - pts[i - 1]!.z);
     const len = Math.hypot(t.x, t.z) || 1;
     const tx = t.x / len, tz = t.z / len;
     pts.push({ x: p.x, z: p.z, tx, tz, nx: tz, nz: -tx, d });
   }
-  const length = d + Math.hypot(pts[0].x - pts[N - 1].x, pts[0].z - pts[N - 1].z);
+  const length = d + Math.hypot(pts[0]!.x - pts[N - 1]!.x, pts[0]!.z - pts[N - 1]!.z);
   return { pts, length };
 }
 
@@ -40,7 +40,7 @@ export function nearest(x: number, z: number, from: number): number {
   const start = from < 0 ? 0 : from;
   for (let k = -range; k <= range; k++) {
     const i = (((start + k) % N) + N) % N;
-    const p = TRACK.pts[i];
+    const p = TRACK.pts[i]!;
     const dd = (p.x - x) ** 2 + (p.z - z) ** 2;
     if (dd < bestD) { bestD = dd; best = i; }
   }

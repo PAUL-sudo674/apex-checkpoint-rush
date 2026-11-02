@@ -10,7 +10,7 @@ function drive(seconds: number, auto = true) {
   let walls = 0;
   for (let t = 0; t < seconds && race.phase !== "finished"; t += 1 / 60) {
     if (auto) {
-      const target = TRACK.pts[(car.idx + 12) % N];
+      const target = TRACK.pts[(car.idx + 12) % N]!;
       const want = Math.atan2(target.x - car.x, target.z - car.z);
       const diff = Math.atan2(Math.sin(want - car.h), Math.cos(want - car.h));
       input.left = diff > 0.03;
@@ -48,7 +48,7 @@ describe("race rules", () => {
     race.phase = "racing";
     const input: Input = { up: true, down: false, left: true, right: false, hb: false };
     for (let i = 0; i < 600; i++) step(car, race, input, 1 / 60);
-    const p = TRACK.pts[car.idx];
+    const p = TRACK.pts[car.idx]!;
     const off = Math.abs((car.x - p.x) * p.nx + (car.z - p.z) * p.nz);
     expect(off).toBeLessThan(8.5);
   });
