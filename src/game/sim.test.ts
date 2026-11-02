@@ -8,7 +8,7 @@ function drive(seconds: number, auto = true) {
   race.phase = "countdown";
   const input: Input = { up: true, down: false, left: false, right: false, hb: false };
   let walls = 0;
-  for (let t = 0; t < seconds && race.phase !== "finished"; t += 1 / 60) {
+  for (let t = 0; t < seconds && (race.phase as string) !== "finished"; t += 1 / 60) {
     if (auto) {
       const target = TRACK.pts[(car.idx + 12) % N]!;
       const want = Math.atan2(target.x - car.x, target.z - car.z);

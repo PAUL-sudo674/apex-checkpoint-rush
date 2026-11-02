@@ -73,7 +73,7 @@ export function step(car: Car, race: Race, input: Input, dt: number): Events {
 
   // checkpoints & laps
   if (race.nextCp < CHECKPOINTS.length) {
-    const cp = CHECKPOINTS[race.nextCp];
+    const cp = CHECKPOINTS[race.nextCp]!;
     if (car.idx >= cp && car.idx < cp + 40) { race.nextCp++; ev.cp = true; }
   } else if (car.idx < 40) {
     race.lapTimes.push(race.time - race.lapStart);

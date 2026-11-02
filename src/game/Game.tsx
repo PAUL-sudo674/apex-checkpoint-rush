@@ -5,7 +5,7 @@ import { newCar, newRace, fmtTime, C, type Input, type Events, type Phase } from
 import { TRACK, N } from "./track";
 import { Sfx } from "./audio";
 
-type Hud = { speed: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number };
+type Hud = { speed: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number | undefined };
 const BEST_KEY = "apex-best-time";
 
 // minimap path
@@ -90,12 +90,12 @@ export default function Game() {
       KeyD: "right", ArrowRight: "right", Space: "hb",
     };
     const down = (e: KeyboardEvent) => {
-      if (map[e.code]) { input.current[map[e.code]] = true; e.preventDefault(); }
+      const k = map[e.code]; if (k) { input.current[k] = true; e.preventDefault(); }
       if (e.code === "Escape" || e.code === "KeyP") togglePause();
       if (e.code === "Enter" && (race.current.phase === "menu" || race.current.phase === "finished")) start();
       if (e.code === "KeyR" && race.current.phase !== "menu") start();
     };
-    const up = (e: KeyboardEvent) => { if (map[e.code]) input.current[map[e.code]] = false; };
+    const up = (e: KeyboardEvent) => { const k = map[e.code]; if (k) input.current[k] = false; };
     const blur = () => { Object.keys(input.current).forEach((k) => (input.current[k as keyof Input] = false)); };
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
