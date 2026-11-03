@@ -25,10 +25,10 @@ function drive(seconds: number, auto = true) {
 
 describe("race rules", () => {
   it("Shift and Space activate nitro while X is the separate drift key", () => {
-    expect(KEY_MAP.ShiftLeft).toBe("boost");
-    expect(KEY_MAP.ShiftRight).toBe("boost");
-    expect(KEY_MAP.Space).toBe("boost");
-    expect(KEY_MAP.KeyX).toBe("hb");
+    expect(KEY_MAP["ShiftLeft"]).toBe("boost");
+    expect(KEY_MAP["ShiftRight"]).toBe("boost");
+    expect(KEY_MAP["Space"]).toBe("boost");
+    expect(KEY_MAP["KeyX"]).toBe("hb");
     expect(resolveKeys(new Set(["Space", "ShiftLeft"])).boost).toBe(true);
     expect(resolveKeys(new Set(["ShiftLeft"])).boost).toBe(true);
   });
@@ -79,6 +79,18 @@ describe("race rules", () => {
     step(car, race, { up: true, down: false, left: false, right: false, hb: false, boost: true }, 0.05);
     expect(car.nitro).toBe(50);
     expect(car.speed).toBe(0);
+  });
+
+  it("acceleration tapers at speed and boost raises the speed ceiling", () => {
+    const input: Input = { up: true, down: false, left: false, right: false, hb: false };
+    const slow = newCar(), fast = newCar(), race = newRace(); race.phase = "racing";
+    fast.vx = Math.sin(fast.h) * 60; fast.vz = Math.cos(fast.h) * 60;
+    step(slow, race, input, 1 / 60); step(fast, race, input, 1 / 60);
+    expect(slow.speed).toBeGreaterThan(fast.speed - 60);
+    fast.vx = Math.sin(fast.h) * 68; fast.vz = Math.cos(fast.h) * 68;
+    step(fast, race, { ...input, boost: true }, 1 / 60);
+    expect(fast.speed).toBeGreaterThan(68);
+    expect(fast.speed).toBeLessThanOrEqual(90);
   });
   it("countdown holds the car still, then racing starts", () => {
     const car = newCar();
