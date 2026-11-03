@@ -1,14 +1,17 @@
-import { useMemo, useRef, useLayoutEffect, type MutableRefObject } from "react";
+import { useMemo, useRef, useLayoutEffect, useEffect, type MutableRefObject } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer } from "@react-three/drei";
 import * as THREE from "three";
-import { TRACK, N, HALF } from "./track";
+import { DrivingEffects, radialTexture, type EffectsHandle } from "./Effects";
+import { sceneColor } from "./palette";
+import { TRACK, N, HALF, CHECKPOINTS } from "./track";
 import { step, C, type Car, type Race, type Input, type Events } from "./sim";
 
 function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, repeat = true) {
   const c = document.createElement("canvas");
   c.width = w; c.height = h;
-  draw(c.getContext("2d")!);
+  const context = c.getContext("2d");
+  if (context) draw(context);
   const t = new THREE.CanvasTexture(c);
   if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
   t.colorSpace = THREE.SRGBColorSpace;
@@ -229,13 +232,16 @@ function Ground() {
 }
 
 function CarModel({ carRef, wheels }: { carRef: MutableRefObject<THREE.Group | null>; wheels: MutableRefObject<THREE.Group[]> }) {
+  const shadowTex = useMemo(radialTexture, []);
+  const glowColor = useMemo(() => sceneColor("--headlight"), []);
+  const shadowColor = useMemo(() => sceneColor("--background"), []);
   const paint = { color: "#e2551d", metalness: 0.6, roughness: 0.25 } as const;
   const wheelPos: [number, number, number][] = [[-0.95, 0.38, 1.35], [0.95, 0.38, 1.35], [-0.95, 0.38, -1.3], [0.95, 0.38, -1.3]];
   return (
     <group ref={carRef}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
-        <planeGeometry args={[2.6, 5]} />
-        <meshBasicMaterial color="#000" transparent opacity={0.3} />
+        <planeGeometry args={[4.2, 6.8]} />
+        <meshBasicMaterial map={shadowTex} color={shadowColor} transparent opacity={0.75} depthWrite={false} />
       </mesh>
       <mesh position={[0, 0.6, 0]} castShadow>
         <boxGeometry args={[1.9, 0.5, 4.3]} />
@@ -262,6 +268,8 @@ function CarModel({ carRef, wheels }: { carRef: MutableRefObject<THREE.Group | n
       ))}
       {[-0.65, 0.65].map((x) => (
         <group key={x}>
+          <sprite position={[x, 0.65, 2.23]} scale={[1.1, 1.1, 1]}><spriteMaterial map={shadowTex} color={glowColor} transparent opacity={0.8} blending={THREE.AdditiveBlending} depthWrite={false} /></sprite>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[x, 0.06, 6]}><planeGeometry args={[3.5, 9]} /><meshBasicMaterial map={shadowTex} color={glowColor} transparent opacity={0.14} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
           <mesh position={[x, 0.65, 2.16]}><boxGeometry args={[0.5, 0.14, 0.05]} /><meshStandardMaterial color="#fff" emissive="#fff4d6" emissiveIntensity={4} /></mesh>
           <mesh position={[x, 0.68, -2.16]}><boxGeometry args={[0.55, 0.12, 0.05]} /><meshStandardMaterial color="#f00" emissive="#ff1a1a" emissiveIntensity={4} /></mesh>
         </group>
@@ -299,13 +307,25 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
   const ready = useRef(false);
   const camInit = useRef(false);
   const spin = useRef(0);
+  const effects = useRef<EffectsHandle>(null);
+  const shake = useRef(0);
+  const shakeOffset = useRef(new THREE.Vector3());
+  const desired = useMemo(() => new THREE.Vector3(), []);
+  const reducedMotion = useRef(false);
+  useEffect(() => {
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => { reducedMotion.current = query.matches; };
+    update(); query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
-    if (import.meta.env.DEV) (window as unknown as { __dbg: unknown }).__dbg = { delta, phase: race.current.phase, cd: race.current.countdown, t: race.current.time };
     const ev = step(car.current, race.current, input.current, dt);
     if (ev.wall || ev.cp || ev.lap || ev.finished) onEvents(ev);
+    if (ev.wall) shake.current = 0.3;
     const c = car.current;
+    effects.current?.update(c, input.current, dt, race.current.phase === "racing");
 
     const g = carRef.current;
     if (g) {
@@ -318,9 +338,15 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
     }
 
     const fx = Math.sin(c.h), fz = Math.cos(c.h);
-    const desired = new THREE.Vector3(c.x - fx * 9, 3.6, c.z - fz * 9);
+    const distance = 9 + Math.min(Math.abs(c.speed) / C.BOOST_MAX, 1) * 3;
+    desired.set(c.x - fx * distance, 3.6 + Math.abs(c.speed) / C.BOOST_MAX, c.z - fz * distance);
+    camera.position.sub(shakeOffset.current);
     if (!camInit.current) { camera.position.copy(desired); camInit.current = true; }
     camera.position.lerp(desired, 1 - Math.exp(-6 * dt));
+    shake.current = Math.max(0, shake.current - dt);
+    const amplitude = reducedMotion.current ? 0 : shake.current * 0.75;
+    shakeOffset.current.set(Math.sin(shake.current * 130) * amplitude, Math.cos(shake.current * 110) * amplitude * 0.65, 0);
+    camera.position.add(shakeOffset.current);
     camera.lookAt(c.x + fx * 5, 1.2, c.z + fz * 5);
     const fov = 62 + (Math.abs(c.speed) / C.MAX) * 14;
     if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, 3 * dt); camera.updateProjectionMatrix(); }
@@ -346,6 +372,8 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
       <Track />
       <Scenery />
       <CarModel carRef={carRef} wheels={wheels} />
+      <DrivingEffects ref={effects} />
+      <CheckpointGates race={race} />
     </>
   );
 }
@@ -362,4 +390,29 @@ function SkyDome() {
       <meshBasicMaterial map={tex} side={THREE.BackSide} fog={false} />
     </mesh>
   );
+}
+
+function CheckpointGates({ race }: { race: MutableRefObject<Race> }) {
+  const refs = useRef<THREE.Group[]>([]);
+  const texture = useMemo(radialTexture, []);
+  const color = useMemo(() => sceneColor("--nitro"), []);
+  const base = useMemo(() => sceneColor("--primary"), []);
+  useFrame(() => {
+    refs.current.forEach((group, i) => {
+      group.visible = race.current.phase !== "menu" && i >= race.current.nextCp;
+      group.scale.setScalar(i === race.current.nextCp ? 1 : 0.85);
+    });
+  });
+  return <group>{CHECKPOINTS.map((idx, i) => {
+    const p = TRACK.pts[idx];
+    if (!p) return null;
+    return <group key={idx} ref={(g) => { if (g) refs.current[i] = g; }} position={[p.x, 0, p.z]} rotation={[0, Math.atan2(p.tx, p.tz), 0]}>
+      {[-1, 1].map((side) => <group key={side} position={[side * (HALF + 0.6), 0, 0]}>
+        <mesh position={[0, 2.5, 0]}><boxGeometry args={[0.18, 5, 0.18]} /><meshStandardMaterial color={base} emissive={color} emissiveIntensity={3} /></mesh>
+        <sprite position={[0, 2.5, 0]} scale={[2, 7, 1]}><spriteMaterial map={texture} color={color} transparent opacity={0.65} blending={THREE.AdditiveBlending} depthWrite={false} /></sprite>
+      </group>)}
+      <mesh position={[0, 5, 0]}><boxGeometry args={[HALF * 2 + 1.4, 0.12, 0.12]} /><meshStandardMaterial color={color} emissive={color} emissiveIntensity={3} /></mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.055, 0]}><planeGeometry args={[HALF * 2, 4]} /><meshBasicMaterial map={texture} color={color} transparent opacity={0.55} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+    </group>;
+  })}</group>;
 }

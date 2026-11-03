@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Scene } from "./Scene";
-import { newCar, newRace, fmtTime, C, type Input, type Events, type Phase } from "./sim";
-import { TRACK, N } from "./track";
+import { newCar, newRace, fmtTime, step, C, type Input, type Events, type Phase } from "./sim";
+import { KEY_MAP, emptyInput, resolveKeys } from "./input";
+import { Button } from "@/components/ui/button";
+import { Zap, Gauge, ChevronLeft, ChevronRight } from "lucide-react";
+import { TRACK, N, CHECKPOINTS } from "./track";
 import { Sfx } from "./audio";
 import { useWebMCP } from "use-webmcp-tool";
 import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 
-type Hud = { speed: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number | undefined };
+type Hud = { speed: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number | undefined; nitro: number; boosting: boolean; drifting: boolean; nextCp: number; idx: number };
 const BEST_KEY = "apex-best-time";
 
 // minimap path
@@ -21,10 +24,12 @@ const MAP_W = (maxX - minX) * MS + 10, MAP_H = (maxZ - minZ) * MS + 10;
 export default function Game() {
   const car = useRef(newCar());
   const race = useRef(newRace());
-  const input = useRef<Input>({ up: false, down: false, left: false, right: false, hb: false });
+  const input = useRef<Input>(emptyInput());
+  const keyboard = useRef(new Set<string>());
+  const touch = useRef<Input>(emptyInput());
   const sfx = useRef(new Sfx());
   const [phase, setPhase] = useState<Phase>("menu");
-  const [hud, setHud] = useState<Hud>({ speed: 0, lap: 1, time: 0, cd: C.COUNTDOWN, x: car.current.x, z: car.current.z });
+  const [hud, setHud] = useState<Hud>({ speed: 0, lap: 1, time: 0, cd: C.COUNTDOWN, x: car.current.x, z: car.current.z, nitro: 100, boosting: false, drifting: false, nextCp: 0, idx: car.current.idx });
   const [muted, setMuted] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
   const [best, setBest] = useState<number | null>(null);
@@ -46,7 +51,9 @@ export default function Game() {
     car.current = newCar();
     race.current = newRace();
     race.current.phase = "countdown";
+    input.current = emptyInput(); touch.current = emptyInput(); keyboard.current.clear();
     lastBeep.current = 4;
+    setFlash(null);
     setNewBest(false);
     setPhase("countdown");
   }, []);
@@ -62,11 +69,11 @@ export default function Game() {
   const onEvents = useCallback((e: Events) => {
     const r = race.current;
     if (e.wall) sfx.current.thud();
-    if (e.cp) { showFlash("CHECKPOINT"); sfx.current.beep(880, 0.08); }
+    if (e.cp) { showFlash("CHECKPOINT"); sfx.current.checkpoint(); }
     if (e.lap && !e.finished) { showFlash(r.lap === C.LAPS ? "FINAL LAP" : `LAP ${r.lap}`); sfx.current.beep(1200, 0.2); }
     if (e.finished) {
       setPhase("finished");
-      sfx.current.beep(1500, 0.4);
+      sfx.current.checkpoint();
       const prev = parseFloat(localStorage.getItem(BEST_KEY) ?? "Infinity");
       if (r.time < prev) { localStorage.setItem(BEST_KEY, String(r.time)); setBest(r.time); setNewBest(true); }
     }
@@ -79,31 +86,61 @@ export default function Game() {
       if (n < lastBeep.current) { lastBeep.current = n; sfx.current.beep(n > 0 ? 520 : 1040, n > 0 ? 0.15 : 0.35); }
     }
     if (r.phase === "racing" && race.current.phase !== phaseRef.current) setPhase("racing");
-    sfx.current.engine(Math.abs(c.speed) / C.MAX, input.current.up, r.phase === "racing");
-    setHud({ speed: Math.abs(c.speed) * 3.6, lap: r.lap, time: r.time, cd: r.countdown, x: c.x, z: c.z, lastLap: r.lapTimes[r.lapTimes.length - 1] });
+    sfx.current.engine(Math.abs(c.speed) / C.MAX, input.current.up, r.phase === "racing", c.drifting, c.boosting);
+    setHud({ speed: Math.abs(c.speed) * 3.6, lap: r.lap, time: r.time, cd: r.countdown, x: c.x, z: c.z, lastLap: r.lapTimes[r.lapTimes.length - 1], nitro: c.nitro, boosting: c.boosting, drifting: c.drifting, nextCp: r.nextCp, idx: c.idx });
   }, []);
 
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
 
+  const mergeInput = useCallback(() => {
+    const keys = resolveKeys(keyboard.current);
+    for (const action of Object.keys(keys) as (keyof Input)[]) input.current[action] = !!keys[action] || !!touch.current[action];
+  }, []);
+
   useEffect(() => {
-    const map: Record<string, keyof Input> = {
-      KeyW: "up", ArrowUp: "up", KeyS: "down", ArrowDown: "down", KeyA: "left", ArrowLeft: "left",
-      KeyD: "right", ArrowRight: "right", Space: "hb",
-    };
     const down = (e: KeyboardEvent) => {
-      const k = map[e.code]; if (k) { input.current[k] = true; e.preventDefault(); }
+      if (KEY_MAP[e.code]) { keyboard.current.add(e.code); mergeInput(); e.preventDefault(); }
+      if (e.repeat) return;
       if (e.code === "Escape" || e.code === "KeyP") togglePause();
       if (e.code === "Enter" && (race.current.phase === "menu" || race.current.phase === "finished")) start();
       if (e.code === "KeyR" && race.current.phase !== "menu") start();
     };
-    const up = (e: KeyboardEvent) => { const k = map[e.code]; if (k) input.current[k] = false; };
-    const blur = () => { Object.keys(input.current).forEach((k) => (input.current[k as keyof Input] = false)); };
-    window.addEventListener("keydown", down);
-    window.addEventListener("keyup", up);
-    window.addEventListener("blur", blur);
-    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); };
-  }, [start, togglePause]);
+    const up = (e: KeyboardEvent) => { keyboard.current.delete(e.code); mergeInput(); };
+    const blur = () => { keyboard.current.clear(); touch.current = emptyInput(); mergeInput(); };
+    const hidden = () => { if (document.hidden) { blur(); sfx.current.engine(0, false, false); } };
+    window.addEventListener("keydown", down); window.addEventListener("keyup", up); window.addEventListener("blur", blur);
+    document.addEventListener("visibilitychange", hidden);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); window.removeEventListener("blur", blur); document.removeEventListener("visibilitychange", hidden); };
+  }, [start, togglePause, mergeInput]);
+
+  useEffect(() => {
+    if (phase === "paused" || phase === "menu" || phase === "finished") {
+      touch.current = emptyInput(); keyboard.current.clear(); mergeInput();
+      sfx.current.engine(0, false, false);
+    }
+  }, [phase, mergeInput]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    const api = {
+      get state() { return { car: { ...car.current }, race: { ...race.current }, input: { ...input.current } }; },
+      get audio() { return sfx.current.meters(); },
+      start, pause: togglePause,
+      setInput(values: Partial<Input>) { Object.assign(input.current, values); },
+      sim(seconds: number) {
+        for (let t = 0; t < Math.min(seconds, 600); t += 1 / 60) {
+          const ev = step(car.current, race.current, input.current, 1 / 60);
+          if (ev.wall || ev.cp || ev.lap || ev.finished) onEvents(ev);
+        }
+        setPhase(race.current.phase); onHud();
+      },
+    };
+    const w = window as unknown as { __game?: typeof api };
+    w.__game = api;
+    if (new URLSearchParams(location.search).has("race")) start();
+    return () => { delete w.__game; };
+  }, [start, togglePause, onEvents, onHud]);
 
   const toggleSound = () => { const m = !muted; setMuted(m); sfx.current.setEnabled(!m); };
 
@@ -112,7 +149,7 @@ export default function Game() {
     description: "Read the current race state: phase, lap, elapsed time, speed and best time.",
     annotations: { readOnlyHint: true },
     execute: () => runWebMCPTool("get_race_status", () =>
-      `Phase: ${phase}. Lap ${hud.lap}/${C.LAPS}. Time ${fmtTime(hud.time)}. Speed ${Math.round(Math.abs(hud.speed) * 3.6)} km/h. Best: ${best != null ? fmtTime(best) : "none"}.`),
+      `Phase: ${phase}. Lap ${hud.lap}/${C.LAPS}. Time ${fmtTime(hud.time)}. Speed ${Math.round(hud.speed)} km/h. Best: ${best != null ? fmtTime(best) : "none"}.`),
   });
   useWebMCP({
     name: "start_race",
@@ -144,6 +181,9 @@ export default function Game() {
         <Scene car={car} race={race} input={input} onEvents={onEvents} onHud={onHud} onReady={() => setReady(true)} />
       </Canvas>
       <div className="pointer-events-none absolute inset-0 hud-vignette" />
+      {phase === "racing" && hud.speed > 150 && <div className={hud.boosting ? "speed-lines is-boosting" : "speed-lines"} aria-hidden="true">
+        {Array.from({ length: 18 }, (_, i) => <i key={i} style={{ "--line-angle": `${i * 20}deg`, "--line-delay": `${(i % 5) * -0.18}s` } as React.CSSProperties} />)}
+      </div>}
 
       {/* Top bar */}
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-5">
@@ -161,13 +201,13 @@ export default function Game() {
           </div>
         ) : <div />}
         <div className="pointer-events-auto flex gap-2">
-          <button className="btn-icon" onClick={toggleSound} aria-label={muted ? "Unmute sound" : "Mute sound"}>
+          <Button variant="ghost" className="btn-icon" onClick={toggleSound} aria-label={muted ? "Unmute sound" : "Mute sound"}>
             {muted ? <SpeakerOff /> : <SpeakerOn />}
-          </button>
+          </Button>
           {inRace && (
             <>
-              <button className="btn-icon" onClick={togglePause} aria-label="Pause">{phase === "paused" ? "▶" : "❚❚"}</button>
-              <button className="btn-icon" onClick={start} aria-label="Restart race">↻</button>
+              <Button variant="ghost" className="btn-icon" onClick={togglePause} aria-label={phase === "paused" ? "Resume" : "Pause"}>{phase === "paused" ? "▶" : "❚❚"}</Button>
+              <Button variant="ghost" className="btn-icon" onClick={start} aria-label="Restart race">↻</Button>
             </>
           )}
         </div>
@@ -175,10 +215,14 @@ export default function Game() {
 
       {/* Minimap */}
       {inRace && (
-        <div className="hud-panel absolute right-3 top-20 hidden p-2 sm:block sm:right-5">
+        <div className="hud-panel race-minimap">
           <svg width={MAP_W} height={MAP_H}>
             <polygon points={MAP_PATH} className="fill-none stroke-muted-foreground" strokeWidth={4} strokeLinejoin="round" />
-            <circle cx={mapPt(TRACK.pts[0]!.x, TRACK.pts[0]!.z)[0]} cy={mapPt(TRACK.pts[0]!.x, TRACK.pts[0]!.z)[1]} r={3} className="fill-foreground" />
+            {CHECKPOINTS.map((idx, i) => {
+              const p = TRACK.pts[idx]; if (!p) return null;
+              const [x, y] = mapPt(p.x, p.z);
+              return <circle key={idx} cx={x} cy={y} r={i === hud.nextCp ? 4 : 2.5} className={i < hud.nextCp ? "fill-muted-foreground" : "fill-nitro"} />;
+            })}
             <circle cx={mx} cy={my} r={5} className="fill-primary" />
           </svg>
         </div>
@@ -186,21 +230,28 @@ export default function Game() {
 
       {/* Speedometer */}
       {inRace && (
-        <div className="hud-panel absolute bottom-4 right-3 w-40 px-4 py-3 text-right sm:bottom-6 sm:right-6 sm:w-52 landscape-touch:bottom-28">
+        <div className="hud-panel digital-speedometer">
+          <div className="flex items-center justify-between"><Gauge size={14} className="text-muted-foreground" /><span className={hud.boosting ? "hud-label text-nitro" : "hud-label"}>{hud.boosting ? "BOOST" : hud.drifting ? "DRIFT" : "SPEED"}</span></div>
           <div className="font-display text-5xl font-bold leading-none tabular-nums sm:text-6xl">{Math.round(hud.speed)}</div>
           <div className="hud-label mt-1">km/h</div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full speed-bar transition-[width] duration-100" style={{ width: `${speedPct * 100}%` }} />
           </div>
+          <div className="nitro-label"><Zap size={13} /><span>NITRO</span><span>{Math.round(hud.nitro)}%</span></div>
+          <progress className="nitro-meter" max={100} value={hud.nitro} aria-label="Nitro charge" />
         </div>
       )}
+      {inRace && <div className="checkpoint-progress hud-panel">
+        <div className="flex justify-between"><span className="hud-label">CHECKPOINTS</span><span className="font-display text-xs text-nitro">{hud.nextCp}/{CHECKPOINTS.length}</span></div>
+        <div className="flex gap-1.5 mt-1.5">{CHECKPOINTS.map((_, i) => <div key={i} className={i < hud.nextCp ? "checkpoint-pip collected" : i === hud.nextCp ? "checkpoint-pip current" : "checkpoint-pip"} />)}</div>
+      </div>}
 
       {/* Control hints */}
       {inRace && (
         <div className="hud-panel absolute bottom-6 left-6 hidden px-4 py-3 text-xs text-muted-foreground lg:block touch:hidden">
           <div><Kbd>W</Kbd>/<Kbd>↑</Kbd> throttle · <Kbd>S</Kbd>/<Kbd>↓</Kbd> brake</div>
-          <div className="mt-1"><Kbd>A</Kbd><Kbd>D</Kbd>/<Kbd>←</Kbd><Kbd>→</Kbd> steer · <Kbd>Space</Kbd> handbrake</div>
-          <div className="mt-1"><Kbd>P</Kbd> pause · <Kbd>R</Kbd> restart</div>
+          <div className="mt-1"><Kbd>A</Kbd><Kbd>D</Kbd>/<Kbd>←</Kbd><Kbd>→</Kbd> steer · <Kbd>X</Kbd> drift</div>
+          <div className="mt-1"><Kbd>Shift</Kbd>/<Kbd>Space</Kbd> nitro · <Kbd>P</Kbd> pause</div>
         </div>
       )}
 
@@ -222,7 +273,7 @@ export default function Game() {
       )}
 
       {/* Touch controls */}
-      {inRace && phase !== "paused" && <TouchControls input={input} />}
+      {inRace && phase !== "paused" && <TouchControls input={touch} onChange={mergeInput} nitro={hud.nitro} />}
 
       {/* Rotate gate: portrait touch screens */}
       {inRace && (
@@ -230,7 +281,7 @@ export default function Game() {
           <RotateIcon />
           <h2 className="font-display text-3xl font-bold tracking-widest">ROTATE YOUR DEVICE</h2>
           <p className="max-w-xs text-sm text-muted-foreground">Apex Street Racer plays in landscape. Turn your phone sideways to keep racing.</p>
-          <button className="btn-ghost-race" onClick={togglePause}>Pause</button>
+          <Button variant="ghost" className="btn-ghost-race" onClick={togglePause}>Pause</Button>
         </div>
       )}
 
@@ -243,11 +294,11 @@ export default function Game() {
           </h1>
           <p className="mt-4 max-w-sm text-muted-foreground">Hit every checkpoint, stay off the walls, and set the fastest {C.LAPS}-lap time.</p>
           {best && <p className="mt-3 text-sm">Best time <span className="font-display font-bold text-primary tabular-nums">{fmtTime(best)}</span></p>}
-          <button className="btn-race mt-6" onClick={start} disabled={!ready}>{ready ? "Start Race" : "Loading…"}</button>
+          <Button variant="ghost" className="btn-race mt-6" onClick={start} disabled={!ready}>{ready ? "Start Race" : "Loading…"}</Button>
           <div className="mt-6 grid grid-cols-2 gap-x-6 gap-y-1 text-left text-xs text-muted-foreground">
             <span><Kbd>W</Kbd>/<Kbd>↑</Kbd> Accelerate</span><span><Kbd>S</Kbd>/<Kbd>↓</Kbd> Brake / reverse</span>
-            <span><Kbd>A</Kbd><Kbd>D</Kbd> Steer</span><span><Kbd>Space</Kbd> Handbrake</span>
-            <span><Kbd>P</Kbd> Pause</span><span><Kbd>R</Kbd> Restart</span>
+            <span><Kbd>A</Kbd><Kbd>D</Kbd> Steer</span><span><Kbd>X</Kbd> Drift</span>
+            <span><Kbd>P</Kbd> Pause</span><span><Kbd>Shift</Kbd>/<Kbd>Space</Kbd> Nitro</span>
           </div>
           <p className="mt-3 hidden text-xs text-muted-foreground touch:block">On touch screens, use the on-screen pedals and arrows.</p>
         </Overlay>
@@ -257,9 +308,9 @@ export default function Game() {
         <Overlay>
           <h2 className="font-display text-5xl font-bold">PAUSED</h2>
           <div className="mt-6 flex flex-col gap-3">
-            <button className="btn-race" onClick={togglePause}>Resume</button>
-            <button className="btn-ghost-race" onClick={start}>Restart</button>
-            <button className="btn-ghost-race" onClick={toMenu}>Main Menu</button>
+            <Button variant="ghost" className="btn-race" onClick={togglePause}>Resume</Button>
+            <Button variant="ghost" className="btn-ghost-race" onClick={start}>Restart</Button>
+            <Button variant="ghost" className="btn-ghost-race" onClick={toMenu}>Main Menu</Button>
           </div>
         </Overlay>
       )}
@@ -268,7 +319,7 @@ export default function Game() {
         <Overlay>
           <div className="hud-label tracking-[0.4em]">Race Complete</div>
           <h2 className="font-display mt-2 text-6xl font-bold tabular-nums text-primary">{fmtTime(race.current.time)}</h2>
-          {newBest && <div className="mt-2 font-display text-lg font-bold tracking-widest">NEW BEST TIME!</div>}
+          {newBest && <div className="mt-2 font-display text-lg font-bold tracking-widest">🏆 NEW PERSONAL RECORD!</div>}
           <div className="mt-4 w-56 space-y-1 text-sm">
             {race.current.lapTimes.map((t, i) => {
               const fastest = t === Math.min(...race.current.lapTimes);
@@ -282,8 +333,8 @@ export default function Game() {
             {best && <div className="flex justify-between border-t border-border pt-1 tabular-nums"><span className="text-muted-foreground">Best ever</span><span>{fmtTime(best)}</span></div>}
           </div>
           <div className="mt-6 flex gap-3">
-            <button className="btn-race" onClick={start}>Race Again</button>
-            <button className="btn-ghost-race" onClick={toMenu}>Menu</button>
+            <Button variant="ghost" className="btn-race" onClick={start}>Race Again</Button>
+            <Button variant="ghost" className="btn-ghost-race" onClick={toMenu}>Menu</Button>
           </div>
         </Overlay>
       )}
@@ -303,24 +354,25 @@ function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="mx-0.5 inline-block min-w-5 rounded border border-border bg-muted px-1 text-center font-display text-[10px] text-foreground">{children}</kbd>;
 }
 
-function TouchControls({ input }: { input: React.MutableRefObject<Input> }) {
+function TouchControls({ input, onChange, nitro }: { input: React.MutableRefObject<Input>; onChange: () => void; nitro: number }) {
   const bind = (k: keyof Input) => ({
-    onPointerDown: (e: React.PointerEvent) => { (e.target as HTMLElement).setPointerCapture?.(e.pointerId); input.current[k] = true; },
-    onPointerUp: () => { input.current[k] = false; },
-    onPointerCancel: () => { input.current[k] = false; },
-    onPointerLeave: () => { input.current[k] = false; },
+    onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); input.current[k] = true; onChange(); },
+    onPointerUp: () => { input.current[k] = false; onChange(); },
+    onPointerCancel: () => { input.current[k] = false; onChange(); },
+    onLostPointerCapture: () => { input.current[k] = false; onChange(); },
     onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
   });
   return (
-    <div className="absolute inset-x-0 bottom-0 hidden items-end justify-between p-4 touch:flex" style={{ touchAction: "none" }}>
-      <div className="flex gap-3">
-        <button className="touch-btn" {...bind("left")} aria-label="Steer left">◀</button>
-        <button className="touch-btn" {...bind("right")} aria-label="Steer right">▶</button>
+    <div className="touch-controls">
+      <div className="flex gap-2">
+        <Button variant="ghost" className="touch-btn" {...bind("left")} aria-label="Steer left"><ChevronLeft /></Button>
+        <Button variant="ghost" className="touch-btn" {...bind("right")} aria-label="Steer right"><ChevronRight /></Button>
       </div>
-      <div className="flex items-end gap-3">
-        <button className="touch-btn touch-btn-sm" {...bind("hb")} aria-label="Handbrake">HB</button>
-        <button className="touch-btn" {...bind("down")} aria-label="Brake">BRK</button>
-        <button className="touch-btn touch-btn-gas" {...bind("up")} aria-label="Accelerate">GAS</button>
+      <div className="touch-pedals">
+        <Button variant="ghost" className="touch-btn touch-btn-sm" {...bind("hb")} aria-label="Drift">DRIFT</Button>
+        <Button variant="ghost" className="touch-btn touch-btn-boost" {...bind("boost")} disabled={nitro < 1} aria-label="Nitro boost"><Zap /></Button>
+        <Button variant="ghost" className="touch-btn" {...bind("down")} aria-label="Brake">BRK</Button>
+        <Button variant="ghost" className="touch-btn touch-btn-gas" {...bind("up")} aria-label="Accelerate">GAS</Button>
       </div>
     </div>
   );
