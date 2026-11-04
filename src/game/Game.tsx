@@ -2,9 +2,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Scene } from "./Scene";
 import { newCar, newRace, fmtTime, step, C, type Input, type Events, type Phase } from "./sim";
-import { KEY_MAP, emptyInput, resolveKeys } from "./input";
+import { KEY_MAP, emptyInput, resolveKeys, mergeInputs, type DigitalAction } from "./input";
+import { SteeringWheel } from "./SteeringWheel";
 import { Button } from "@/components/ui/button";
-import { Zap, Gauge, ChevronLeft, ChevronRight } from "lucide-react";
+import { Zap, Gauge } from "lucide-react";
 import { TRACK, N, CHECKPOINTS } from "./track";
 import { Sfx } from "./audio";
 import { useWebMCP } from "use-webmcp-tool";
@@ -94,8 +95,7 @@ export default function Game() {
   phaseRef.current = phase;
 
   const mergeInput = useCallback(() => {
-    const keys = resolveKeys(keyboard.current);
-    for (const action of Object.keys(keys) as (keyof Input)[]) input.current[action] = !!keys[action] || !!touch.current[action];
+    Object.assign(input.current, mergeInputs(resolveKeys(keyboard.current), touch.current));
   }, []);
 
   useEffect(() => {
@@ -248,7 +248,7 @@ export default function Game() {
 
       {/* Control hints */}
       {inRace && (
-        <div className="hud-panel absolute bottom-6 left-6 hidden px-4 py-3 text-xs text-muted-foreground lg:block touch:hidden">
+        <div className="hud-panel absolute bottom-6 left-56 hidden px-4 py-3 text-xs text-muted-foreground lg:block touch:hidden">
           <div><Kbd>W</Kbd>/<Kbd>↑</Kbd> throttle · <Kbd>S</Kbd>/<Kbd>↓</Kbd> brake</div>
           <div className="mt-1"><Kbd>A</Kbd><Kbd>D</Kbd>/<Kbd>←</Kbd><Kbd>→</Kbd> steer · <Kbd>X</Kbd> drift</div>
           <div className="mt-1"><Kbd>Shift</Kbd>/<Kbd>Space</Kbd> nitro · <Kbd>P</Kbd> pause</div>
@@ -273,7 +273,7 @@ export default function Game() {
       )}
 
       {/* Touch controls */}
-      {inRace && phase !== "paused" && <TouchControls input={touch} onChange={mergeInput} nitro={hud.nitro} />}
+      {inRace && phase !== "paused" && <TouchControls car={car} input={touch} onChange={mergeInput} nitro={hud.nitro} />}
 
       {/* Rotate gate: portrait touch screens */}
       {inRace && (
@@ -300,7 +300,7 @@ export default function Game() {
             <span><Kbd>A</Kbd><Kbd>D</Kbd> Steer</span><span><Kbd>X</Kbd> Drift</span>
             <span><Kbd>P</Kbd> Pause</span><span><Kbd>Shift</Kbd>/<Kbd>Space</Kbd> Nitro</span>
           </div>
-          <p className="mt-3 hidden text-xs text-muted-foreground touch:block">On touch screens, use the on-screen pedals and arrows.</p>
+          <p className="mt-3 hidden text-xs text-muted-foreground touch:block">On touch screens, use the steering wheel and pedals.</p>
         </Overlay>
       )}
 
@@ -354,8 +354,8 @@ function Kbd({ children }: { children: React.ReactNode }) {
   return <kbd className="mx-0.5 inline-block min-w-5 rounded border border-border bg-muted px-1 text-center font-display text-[10px] text-foreground">{children}</kbd>;
 }
 
-function TouchControls({ input, onChange, nitro }: { input: React.MutableRefObject<Input>; onChange: () => void; nitro: number }) {
-  const bind = (k: keyof Input) => ({
+function TouchControls({ car, input, onChange, nitro }: { car: React.MutableRefObject<ReturnType<typeof newCar>>; input: React.MutableRefObject<Input>; onChange: () => void; nitro: number }) {
+  const bind = (k: DigitalAction) => ({
     onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); input.current[k] = true; onChange(); },
     onPointerUp: () => { input.current[k] = false; onChange(); },
     onPointerCancel: () => { input.current[k] = false; onChange(); },
@@ -364,10 +364,7 @@ function TouchControls({ input, onChange, nitro }: { input: React.MutableRefObje
   });
   return (
     <div className="touch-controls">
-      <div className="flex gap-2">
-        <Button variant="ghost" className="touch-btn" {...bind("left")} aria-label="Steer left"><ChevronLeft /></Button>
-        <Button variant="ghost" className="touch-btn" {...bind("right")} aria-label="Steer right"><ChevronRight /></Button>
-      </div>
+      <SteeringWheel car={car} input={input} onChange={onChange} />
       <div className="touch-pedals">
         <Button variant="ghost" className="touch-btn touch-btn-sm" {...bind("hb")} aria-label="Drift">DRIFT</Button>
         <Button variant="ghost" className="touch-btn touch-btn-boost" {...bind("boost")} disabled={nitro < 1} aria-label="Nitro boost"><Zap /></Button>

@@ -1,6 +1,7 @@
 import type { Input } from "./sim";
 
-export const KEY_MAP: Record<string, keyof Input> = {
+export type DigitalAction = Exclude<keyof Input, "steer">;
+export const KEY_MAP: Record<string, DigitalAction> = {
   KeyW: "up", ArrowUp: "up", KeyS: "down", ArrowDown: "down",
   KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right",
   KeyX: "hb", ShiftLeft: "boost", ShiftRight: "boost", Space: "boost",
@@ -17,4 +18,13 @@ export function resolveKeys(keys: Set<string>): Input {
     if (action) input[action] = true;
   }
   return input;
+}
+
+export function mergeInputs(keys: Input, touch: Input): Input {
+  return {
+    up: keys.up || touch.up, down: keys.down || touch.down,
+    left: keys.left || touch.left, right: keys.right || touch.right,
+    hb: keys.hb || touch.hb, boost: !!keys.boost || !!touch.boost,
+    steer: touch.steer ?? 0,
+  };
 }

@@ -19,8 +19,8 @@ export default defineTool({
       checkpointsPerLap: CHECKPOINTS.length,
       topSpeedKmh: Math.round(C.MAX * 3.6),
       controls: {
-        keyboard: "W/Up accelerate, S/Down brake/reverse, A/D or Left/Right steer, Space handbrake, P/Esc pause, R restart, Enter start",
-        touch: "On-screen steering, gas and brake buttons in landscape",
+        keyboard: "W/Up accelerate, S/Down brake/reverse, A/D or Left/Right steer, X drift, Shift/Space nitro, P/Esc pause, R restart, Enter start",
+        touch: "Drag the lower-left steering wheel; use gas, brake, drift and nitro on the right in landscape",
       },
       notes: "Best times are stored only in each player's browser.",
     };
