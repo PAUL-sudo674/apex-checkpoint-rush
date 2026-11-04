@@ -253,8 +253,22 @@
 .checkpoint-pip.current { background: var(--primary); }
 .race-minimap { position: absolute; right: 20px; top: 84px; padding: 8px; }
 .race-minimap svg { display: block; }
-.touch-controls { display: none; position: absolute; left: 0; right: 0; bottom: 0; align-items: flex-end; justify-content: space-between; padding: 12px max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); touch-action: none; }
-.touch-pedals { display: flex; align-items: flex-end; gap: 8px; }
+.touch-controls { display: flex; position: absolute; left: 0; right: 0; bottom: 0; align-items: flex-end; justify-content: space-between; padding: 12px max(12px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); touch-action: none; pointer-events: none; }
+.touch-controls > * { pointer-events: auto; }
+.touch-pedals { display: none; }
+.steering-wheel { width: 180px; height: 180px; flex-shrink: 0; padding: 0; border-radius: 50%; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; cursor: grab; background: color-mix(in oklab, var(--background) 35%, transparent); }
+.steering-wheel:hover { background: color-mix(in oklab, var(--background) 50%, transparent); }
+.steering-wheel:active { cursor: grabbing; }
+.steering-wheel .steering-wheel-rotor { width: 100%; height: 100%; transform: rotate(var(--wheel-angle, 0deg)); overflow: visible; pointer-events: none; }
+.wheel-rim-shadow { fill: none; stroke: var(--background); stroke-width: 24; }
+.wheel-rim { fill: none; stroke: var(--muted-foreground); stroke-width: 15; }
+.wheel-grips { fill: none; stroke: var(--card); stroke-width: 19; stroke-linecap: round; }
+.wheel-spokes { fill: var(--secondary); stroke: var(--muted-foreground); stroke-width: 2; }
+.wheel-marker { stroke: var(--primary); stroke-width: 9; }
+.wheel-hub { fill: var(--card); stroke: var(--muted-foreground); stroke-width: 3; }
+.wheel-hub-ring { fill: none; stroke: var(--border); stroke-width: 2; }
+.wheel-emblem { fill: none; stroke: var(--primary); stroke-width: 3; stroke-linejoin: round; }
+.touch-pedals { align-items: flex-end; gap: 8px; }
 .touch-btn-boost { color: var(--nitro); border-color: var(--nitro); }
 .touch-controls .touch-btn { padding: 0; width: 64px; height: 64px; flex-shrink: 0; border-radius: 8px; }
 .touch-controls .touch-btn-gas { height: 76px; }
@@ -266,6 +280,7 @@
 @keyframes speed-streak { from { transform: translateX(0); opacity: 0; } 35% { opacity: 0.8; } to { transform: translateX(30vmax); opacity: 0; } }
 @media (pointer: coarse), (max-width: 640px) {
   .touch-controls { display: flex; }
+  .touch-pedals { display: flex; }
   .digital-speedometer { right: 12px; bottom: 116px; width: 154px; padding: 10px 12px; }
   .digital-speedometer > .font-display { font-size: 42px; }
   .race-minimap { top: 76px; right: 12px; }
@@ -273,6 +288,8 @@
   .checkpoint-progress { top: 86px; left: 12px; transform: none; width: 148px; }
 }
 @media (orientation: landscape) and (max-height: 540px) {
+  .steering-wheel { width: 150px; height: 150px; }
+  .touch-pedals { display: flex; }
   .digital-speedometer { bottom: 110px; width: 146px; padding: 8px 12px; }
   .digital-speedometer > .font-display { font-size: 36px; }
   .race-minimap { top: 12px; right: 168px; }
@@ -282,6 +299,7 @@
   .rotate-gate { display: none; }
 }
 @media (max-width: 450px) {
+  .steering-wheel { width: 144px; height: 144px; }
   .touch-pedals { display: grid; grid-template-columns: 64px 64px; gap: 6px; }
   .digital-speedometer { bottom: 172px; }
 }
