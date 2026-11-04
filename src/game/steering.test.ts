@@ -16,6 +16,7 @@ describe("steering wheel", () => {
     expect(angle).toBeGreaterThan(0); expect(angle).toBeLessThan(110);
     for (let i = 0; i < 90; i++) angle = easeWheel(angle, 0, 1 / 60);
     expect(angle).toBe(0);
+    expect(easeWheel(110, 0, 1)).toBe(0);
   });
   it("keeps drags continuous across the angular seam", () => {
     expect(angularDelta(179 * Math.PI / 180, -179 * Math.PI / 180)).toBeCloseTo(2);
