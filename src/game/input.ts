@@ -18,3 +18,12 @@ export function resolveKeys(keys: Set<string>): Input {
   }
   return input;
 }
+
+export function mergeInputs(keys: Input, touch: Input): Input {
+  return {
+    up: keys.up || touch.up, down: keys.down || touch.down,
+    left: keys.left || touch.left, right: keys.right || touch.right,
+    hb: keys.hb || touch.hb, boost: !!keys.boost || !!touch.boost,
+    steer: touch.steer ?? 0,
+  };
+}

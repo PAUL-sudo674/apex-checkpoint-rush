@@ -7,7 +7,7 @@ export const C = {
   HB_TURN: 1.6, HB_DECEL: 16, CAR_HALF_W: 1.1, COUNTDOWN: 3.5, LAPS: 3,
 };
 
-export type Input = { up: boolean; down: boolean; left: boolean; right: boolean; hb: boolean; boost?: boolean };
+export type Input = { up: boolean; down: boolean; left: boolean; right: boolean; hb: boolean; boost?: boolean; steer?: number };
 export type Phase = "menu" | "countdown" | "racing" | "paused" | "finished";
 export type Car = { x: number; z: number; h: number; speed: number; idx: number; steer: number; wallT: number; vx: number; vz: number; yawRate: number; slip: number; drifting: boolean; nitro: number; boosting: boolean };
 export type Race = {
@@ -44,7 +44,9 @@ export function step(car: Car, race: Race, input: Input, dt: number): Events {
   const rx = Math.cos(car.h), rz = -Math.sin(car.h);
   let forward = car.vx * fx + car.vz * fz;
   let lateral = car.vx * rx + car.vz * rz;
-  const steerIn = (input.left ? 1 : 0) - (input.right ? 1 : 0);
+  const steerIn = input.left || input.right
+    ? (input.left ? 1 : 0) - (input.right ? 1 : 0)
+    : Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? (input.steer ?? 0) : 0));
   car.steer += (steerIn - car.steer) * (1 - Math.exp(-C.STEER_RESPONSE * dt));
   car.drifting = (input.hb || input.down) && Math.abs(car.steer) > 0.18 && Math.abs(forward) > 12;
   car.boosting = !!input.boost && car.nitro > 0 && !input.down && !input.hb;
