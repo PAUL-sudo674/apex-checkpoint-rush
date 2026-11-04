@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Scene } from "./Scene";
 import { newCar, newRace, fmtTime, step, C, type Input, type Events, type Phase } from "./sim";
-import { KEY_MAP, emptyInput, resolveKeys, mergeInputs } from "./input";
+import { KEY_MAP, emptyInput, resolveKeys, mergeInputs, type DigitalAction } from "./input";
 import { SteeringWheel } from "./SteeringWheel";
 import { Button } from "@/components/ui/button";
 import { Zap, Gauge } from "lucide-react";
@@ -248,7 +248,7 @@ export default function Game() {
 
       {/* Control hints */}
       {inRace && (
-        <div className="hud-panel absolute bottom-6 left-6 hidden px-4 py-3 text-xs text-muted-foreground lg:block touch:hidden">
+        <div className="hud-panel absolute bottom-6 left-56 hidden px-4 py-3 text-xs text-muted-foreground lg:block touch:hidden">
           <div><Kbd>W</Kbd>/<Kbd>↑</Kbd> throttle · <Kbd>S</Kbd>/<Kbd>↓</Kbd> brake</div>
           <div className="mt-1"><Kbd>A</Kbd><Kbd>D</Kbd>/<Kbd>←</Kbd><Kbd>→</Kbd> steer · <Kbd>X</Kbd> drift</div>
           <div className="mt-1"><Kbd>Shift</Kbd>/<Kbd>Space</Kbd> nitro · <Kbd>P</Kbd> pause</div>
@@ -300,7 +300,7 @@ export default function Game() {
             <span><Kbd>A</Kbd><Kbd>D</Kbd> Steer</span><span><Kbd>X</Kbd> Drift</span>
             <span><Kbd>P</Kbd> Pause</span><span><Kbd>Shift</Kbd>/<Kbd>Space</Kbd> Nitro</span>
           </div>
-          <p className="mt-3 hidden text-xs text-muted-foreground touch:block">On touch screens, use the on-screen pedals and arrows.</p>
+          <p className="mt-3 hidden text-xs text-muted-foreground touch:block">On touch screens, use the steering wheel and pedals.</p>
         </Overlay>
       )}
 
@@ -355,7 +355,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
 }
 
 function TouchControls({ car, input, onChange, nitro }: { car: React.MutableRefObject<ReturnType<typeof newCar>>; input: React.MutableRefObject<Input>; onChange: () => void; nitro: number }) {
-  const bind = (k: keyof Input) => ({
+  const bind = (k: DigitalAction) => ({
     onPointerDown: (e: React.PointerEvent) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); input.current[k] = true; onChange(); },
     onPointerUp: () => { input.current[k] = false; onChange(); },
     onPointerCancel: () => { input.current[k] = false; onChange(); },
