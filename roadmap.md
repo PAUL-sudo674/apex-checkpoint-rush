@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Upgrade SI-unit vehicle forces, fixed-step integration and actual km/h/automatic gear HUD; verify rules and existing controls without new assets/services
+
 - [x] Add proportional drag steering wheel, preserve keyboard steering and right-side pedals, and verify mobile/desktop interactions
 
 - [x] Apex Street Racer playable prototype (menu, countdown, laps, checkpoints, walls, HUD, finish, sound toggle)
