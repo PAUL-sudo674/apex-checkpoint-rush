@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Scene } from "./Scene";
-import { newCar, newRace, fmtTime, step, C, type Input, type Events, type Phase } from "./sim";
+import { newCar, newRace, fmtTime, step, speedKmh, C, type Input, type Events, type Phase } from "./sim";
 import { KEY_MAP, emptyInput, resolveKeys, mergeInputs, type DigitalAction } from "./input";
 import { SteeringWheel } from "./SteeringWheel";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Sfx } from "./audio";
 import { useWebMCP } from "use-webmcp-tool";
 import { runWebMCPTool } from "@/lib/webmcp-telemetry";
 
-type Hud = { speed: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number | undefined; nitro: number; boosting: boolean; drifting: boolean; nextCp: number; idx: number };
+type Hud = { speed: number; gear: number; lap: number; time: number; cd: number; x: number; z: number; lastLap?: number | undefined; nitro: number; boosting: boolean; drifting: boolean; nextCp: number; idx: number };
 const BEST_KEY = "apex-best-time";
 
 // minimap path
@@ -30,7 +30,7 @@ export default function Game() {
   const touch = useRef<Input>(emptyInput());
   const sfx = useRef(new Sfx());
   const [phase, setPhase] = useState<Phase>("menu");
-  const [hud, setHud] = useState<Hud>({ speed: 0, lap: 1, time: 0, cd: C.COUNTDOWN, x: car.current.x, z: car.current.z, nitro: 100, boosting: false, drifting: false, nextCp: 0, idx: car.current.idx });
+  const [hud, setHud] = useState<Hud>({ speed: 0, gear: 0, lap: 1, time: 0, cd: C.COUNTDOWN, x: car.current.x, z: car.current.z, nitro: 100, boosting: false, drifting: false, nextCp: 0, idx: car.current.idx });
   const [muted, setMuted] = useState(true);
   const [flash, setFlash] = useState<string | null>(null);
   const [best, setBest] = useState<number | null>(null);
@@ -88,7 +88,7 @@ export default function Game() {
     }
     if (r.phase === "racing" && race.current.phase !== phaseRef.current) setPhase("racing");
     sfx.current.engine(Math.abs(c.speed) / C.MAX, input.current.up, r.phase === "racing", c.drifting, c.boosting);
-    setHud({ speed: Math.abs(c.speed) * 3.6, lap: r.lap, time: r.time, cd: r.countdown, x: c.x, z: c.z, lastLap: r.lapTimes[r.lapTimes.length - 1], nitro: c.nitro, boosting: c.boosting, drifting: c.drifting, nextCp: r.nextCp, idx: c.idx });
+    setHud({ speed: speedKmh(c), gear: c.gear, lap: r.lap, time: r.time, cd: r.countdown, x: c.x, z: c.z, lastLap: r.lapTimes[r.lapTimes.length - 1], nitro: c.nitro, boosting: c.boosting, drifting: c.drifting, nextCp: r.nextCp, idx: c.idx });
   }, []);
 
   const phaseRef = useRef(phase);
@@ -233,7 +233,7 @@ export default function Game() {
         <div className="hud-panel digital-speedometer">
           <div className="flex items-center justify-between"><Gauge size={14} className="text-muted-foreground" /><span className={hud.boosting ? "hud-label text-nitro" : "hud-label"}>{hud.boosting ? "BOOST" : hud.drifting ? "DRIFT" : "SPEED"}</span></div>
           <div className="font-display text-5xl font-bold leading-none tabular-nums sm:text-6xl">{Math.round(hud.speed)}</div>
-          <div className="hud-label mt-1">km/h</div>
+          <div className="hud-label mt-1 flex justify-between"><span>km/h</span><span aria-label="Gear">{hud.gear < 0 ? "R" : hud.gear === 0 ? "N" : `D${hud.gear}`}</span></div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full speed-bar transition-[width] duration-100" style={{ width: `${speedPct * 100}%` }} />
           </div>

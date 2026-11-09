@@ -5,7 +5,7 @@ import * as THREE from "three";
 import { DrivingEffects, radialTexture, type EffectsHandle } from "./Effects";
 import { sceneColor } from "./palette";
 import { TRACK, N, HALF, CHECKPOINTS } from "./track";
-import { step, C, type Car, type Race, type Input, type Events } from "./sim";
+import { createPhysicsClock, C, type Car, type Race, type Input, type Events } from "./sim";
 
 function canvasTex(w: number, h: number, draw: (g: CanvasRenderingContext2D) => void, repeat = true) {
   const c = document.createElement("canvas");
@@ -307,6 +307,7 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
   const ready = useRef(false);
   const camInit = useRef(false);
   const spin = useRef(0);
+  const clock = useRef(createPhysicsClock());
   const effects = useRef<EffectsHandle>(null);
   const shake = useRef(0);
   const shakeOffset = useRef(new THREE.Vector3());
@@ -320,26 +321,28 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
   }, []);
 
   useFrame((_, delta) => {
-    const dt = Math.min(delta, 0.05);
-    const ev = step(car.current, race.current, input.current, dt);
-    if (ev.wall || ev.cp || ev.lap || ev.finished) onEvents(ev);
-    if (ev.wall) shake.current = 0.3;
+    const dt = Math.min(delta, C.MAX_FRAME);
+    clock.current.advance(car.current, race.current, input.current, dt, (ev) => {
+      onEvents(ev);
+      if (ev.wall) shake.current = 0.3;
+    });
+    const pose = clock.current.pose(car.current);
     const c = car.current;
     effects.current?.update(c, input.current, dt, race.current.phase === "racing");
 
     const g = carRef.current;
     if (g) {
-      g.position.set(c.x, 0, c.z);
-      g.rotation.set(0, c.h, -c.steer * Math.min(Math.abs(c.speed) / C.MAX, 1) * 0.05);
+      g.position.set(pose.x, 0, pose.z);
+      g.rotation.set(0, pose.h, -c.steer * Math.min(Math.abs(c.speed) / C.MAX, 1) * 0.05);
       spin.current += (c.speed * dt) / 0.38;
       wheels.current.forEach((w, i) => {
-        w.rotation.set(spin.current, i < 2 ? c.steer * 0.45 : 0, 0, "YXZ");
+        w.rotation.set(spin.current, i < 2 ? c.steeringAngle : 0, 0, "YXZ");
       });
     }
 
-    const fx = Math.sin(c.h), fz = Math.cos(c.h);
+    const fx = Math.sin(pose.h), fz = Math.cos(pose.h);
     const distance = 9 + Math.min(Math.abs(c.speed) / C.BOOST_MAX, 1) * 3;
-    desired.set(c.x - fx * distance, 3.6 + Math.abs(c.speed) / C.BOOST_MAX, c.z - fz * distance);
+    desired.set(pose.x - fx * distance, 3.6 + Math.abs(c.speed) / C.BOOST_MAX, pose.z - fz * distance);
     camera.position.sub(shakeOffset.current);
     if (!camInit.current) { camera.position.copy(desired); camInit.current = true; }
     camera.position.lerp(desired, 1 - Math.exp(-6 * dt));
@@ -347,9 +350,9 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
     const amplitude = reducedMotion.current ? 0 : shake.current * 0.75;
     shakeOffset.current.set(Math.sin(shake.current * 130) * amplitude, Math.cos(shake.current * 110) * amplitude * 0.65, 0);
     camera.position.add(shakeOffset.current);
-    camera.lookAt(c.x + fx * 5, 1.2, c.z + fz * 5);
+    camera.lookAt(pose.x + fx * 5, 1.2, pose.z + fz * 5);
     const fov = 62 + (Math.abs(c.speed) / C.MAX) * 14;
-    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * Math.min(1, 3 * dt); camera.updateProjectionMatrix(); }
+    if (Math.abs(camera.fov - fov) > 0.05) { camera.fov += (fov - camera.fov) * (1 - Math.exp(-3 * dt)); camera.updateProjectionMatrix(); }
 
     hudT.current += delta;
     if (hudT.current > 0.08) { hudT.current = 0; onHud(); }
