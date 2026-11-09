@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Fix steering signs and heading-aligned velocity; test both directions/speeds and wheel release without changing other features
+
 - [x] Upgrade SI-unit vehicle forces, fixed-step integration and actual km/h/automatic gear HUD; verify rules and existing controls without new assets/services
 
 - [x] Add proportional drag steering wheel, preserve keyboard steering and right-side pedals, and verify mobile/desktop interactions

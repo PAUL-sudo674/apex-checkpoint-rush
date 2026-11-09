@@ -5,9 +5,9 @@ import { newCar, newRace, step, C } from "./sim";
 
 describe("steering wheel", () => {
   it("maps left/right wheel rotation proportionally to bounded steering", () => {
-    expect(wheelSteer(-55)).toBe(0.5);
-    expect(wheelSteer(55)).toBe(-0.5);
-    expect(wheelSteer(300)).toBe(-1);
+    expect(wheelSteer(-55)).toBe(-0.5);
+    expect(wheelSteer(55)).toBe(0.5);
+    expect(wheelSteer(300)).toBe(1);
     expect(clampWheel(-300)).toBe(-110);
   });
   it("smoothly returns to exactly center on release", () => {
@@ -33,7 +33,7 @@ describe("steering wheel", () => {
     step(full, race, { ...emptyInput(), steer: 1 }, 1 / 60);
     expect(half.steer).toBeCloseTo(gain * 0.5);
     expect(full.steer).toBeCloseTo(half.steer * 2);
-    for (const [code, sign] of [["KeyA", 1], ["ArrowLeft", 1], ["KeyD", -1], ["ArrowRight", -1]] as const) {
+    for (const [code, sign] of [["KeyA", -1], ["ArrowLeft", -1], ["KeyD", 1], ["ArrowRight", 1]] as const) {
       const car = newCar();
       step(car, race, mergeInputs(resolveKeys(new Set([code])), { ...emptyInput(), steer: 0.5 }), 1 / 60);
       expect(car.steer).toBeCloseTo(sign * gain);
