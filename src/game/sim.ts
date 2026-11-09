@@ -10,9 +10,9 @@ export const C = {
   BRAKE: 9, REVERSE_MAX: 12, REVERSE_ACCEL: 2.5,
   MAX: 68, BOOST_MAX: 90, BOOST_POWER: 300000,
   BOOST_ACCEL: 36, BOOST_DRAIN: 25, BOOST_RECHARGE: 12,
-  STEER_ANGLE: 0.48, STEER_RATE: 2.4, STEER_RESPONSE: 7,
+  STEER_ANGLE: 0.48, STEER_RATE: 3.6, STEER_RESPONSE: 7,
   STEER_SPEED: 22, YAW_RESPONSE: 5, GRIP: 9, DRIFT_GRIP: 1.4,
-  TIRE_MU: 1.05, DRIFT_MU: 0.6, HB_DECEL: 4,
+  TIRE_MU: 1.05, DRIFT_MU: 0.6, DRIFT_SIDE_FACTOR: 0.3, HB_DECEL: 4,
   WALL_RESTITUTION: 0.08, WALL_FRICTION: 0.25,
   CAR_HALF_W: 1.1, COUNTDOWN: 3.5, LAPS: 3,
 };
@@ -98,7 +98,7 @@ export function step(car: Car, race: Race, input: Input, dt: number): Events {
   const longAccel = (forward - (car.vx * fx + car.vz * fz)) / Math.max(dt, 1e-9);
   const sideLimit = Math.sqrt(Math.max(0, gripAccel ** 2 - Math.min(gripAccel, Math.abs(longAccel)) ** 2));
   const sideAccel = Math.max(-sideLimit, Math.min(sideLimit,
-    forward * car.yawRate - lateral * (car.drifting ? C.DRIFT_GRIP : C.GRIP)));
+    forward * car.yawRate * (car.drifting ? C.DRIFT_SIDE_FACTOR : 1) - lateral * (car.drifting ? C.DRIFT_GRIP : C.GRIP)));
   const nextLateral = lateral + sideAccel * dt;
   car.vx = fx * forward + rx * nextLateral;
   car.vz = fz * forward + rz * nextLateral;
