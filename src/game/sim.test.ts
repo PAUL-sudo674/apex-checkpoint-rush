@@ -14,8 +14,8 @@ function drive(seconds: number, auto = true) {
       const target = TRACK.pts[(car.idx + 12) % N]!;
       const want = Math.atan2(target.x - car.x, target.z - car.z);
       const diff = Math.atan2(Math.sin(want - car.h), Math.cos(want - car.h));
-      input.left = diff > 0.03;
-      input.right = diff < -0.03;
+      input.left = diff < -0.03;
+      input.right = diff > 0.03;
       input.up = Math.abs(diff) < 0.25 || car.speed < 25;
     }
     if (step(car, race, input, 1 / 60).wall) walls++;
@@ -65,12 +65,12 @@ describe("race rules", () => {
     expect(car.speed).toBeLessThan(25);
     input.down = false; input.left = true;
     step(car, race, input, 1 / 60);
-    expect(car.steer).toBeGreaterThan(0);
-    expect(car.steer).toBeLessThan(1);
+    expect(car.steer).toBeLessThan(0);
+    expect(car.steer).toBeGreaterThan(-1);
     const yaw = car.yawRate; input.left = false;
     step(car, race, input, 1 / 60);
-    expect(car.yawRate).toBeGreaterThan(0);
-    expect(yaw).toBeGreaterThan(0);
+    expect(car.yawRate).toBeLessThan(0);
+    expect(yaw).toBeLessThan(0);
   });
 
   it("boost freezes while paused", () => {

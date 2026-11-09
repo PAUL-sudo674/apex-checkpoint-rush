@@ -24,7 +24,7 @@ export function SteeringWheel({ car, input, onChange }: { car: MutableRefObject<
         input.current.steer = wheelSteer(angle.current); onChange();
         if (!drag.current && angle.current === 0) returning.current = false;
       } else {
-        angle.current = easeWheel(angle.current, -car.current.steer * WHEEL_LIMIT, dt);
+        angle.current = easeWheel(angle.current, car.current.steer * WHEEL_LIMIT, dt);
       }
       rotor.current?.style.setProperty("--wheel-angle", `${angle.current}deg`);
       control.current?.setAttribute("aria-valuenow", String(Math.round(angle.current)));

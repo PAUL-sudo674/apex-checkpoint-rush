@@ -10,7 +10,7 @@ export const C = {
   BRAKE: 9, REVERSE_MAX: 12, REVERSE_ACCEL: 2.5,
   MAX: 68, BOOST_MAX: 90, BOOST_POWER: 300000,
   BOOST_ACCEL: 36, BOOST_DRAIN: 25, BOOST_RECHARGE: 12,
-  STEER_ANGLE: 0.48, STEER_RATE: 3.6, STEER_RESPONSE: 7,
+  STEER_ANGLE: Math.PI / 6, STEER_RATE: 3.6, STEER_RESPONSE: 7,
   STEER_SPEED: 22, YAW_RESPONSE: 5, GRIP: 9, DRIFT_GRIP: 1.4,
   TIRE_MU: 1.05, DRIFT_MU: 0.6, DRIFT_SIDE_FACTOR: 0.15, HB_DECEL: 4,
   WALL_RESTITUTION: 0.08, WALL_FRICTION: 0.25,
@@ -56,17 +56,17 @@ export function step(car: Car, race: Race, input: Input, dt: number): Events {
   if (race.phase !== "racing") return ev;
   race.time += dt;
 
-  // Resolve world momentum into body axes; turning never rotates velocity for free.
+  // +Z forward, +X right: positive heading/steering turns right.
   const fx = Math.sin(car.h), fz = Math.cos(car.h);
   const rx = Math.cos(car.h), rz = -Math.sin(car.h);
   let forward = car.vx * fx + car.vz * fz;
   const lateral = car.vx * rx + car.vz * rz;
   const steerIn = input.left || input.right
-    ? (input.left ? 1 : 0) - (input.right ? 1 : 0)
+    ? (input.right ? 1 : 0) - (input.left ? 1 : 0)
     : Math.max(-1, Math.min(1, Number.isFinite(input.steer) ? (input.steer ?? 0) : 0));
   const steerChange = (steerIn - car.steer) * (1 - Math.exp(-C.STEER_RESPONSE * dt));
   const maxSteerChange = C.STEER_RATE / C.STEER_ANGLE * dt;
-  car.steer += Math.max(-maxSteerChange, Math.min(maxSteerChange, steerChange));
+  car.steer = Math.max(-1, Math.min(1, car.steer + Math.max(-maxSteerChange, Math.min(maxSteerChange, steerChange))));
   car.steeringAngle = car.steer * C.STEER_ANGLE / (1 + (Math.abs(forward) / C.STEER_SPEED) ** 2);
   car.drifting = (input.hb || input.down) && Math.abs(car.steer) > 0.18 && Math.abs(forward) > 12;
   car.boosting = !!input.boost && car.nitro > 0 && !input.down && !input.hb;
@@ -94,15 +94,16 @@ export function step(car: Car, race: Race, input: Input, dt: number): Events {
   const yawTorque = (yawTarget - car.yawRate) * C.YAW_RESPONSE * C.YAW_INERTIA;
   const maxTorque = C.MASS * gripAccel * C.WHEELBASE * 0.5;
   car.yawRate += Math.max(-maxTorque, Math.min(maxTorque, yawTorque)) / C.YAW_INERTIA * dt;
-  // Friction circle: drive/braking and cornering share the same traction budget.
-  const longAccel = (forward - (car.vx * fx + car.vz * fz)) / Math.max(dt, 1e-9);
-  const sideLimit = Math.sqrt(Math.max(0, gripAccel ** 2 - Math.min(gripAccel, Math.abs(longAccel)) ** 2));
-  const sideAccel = Math.max(-sideLimit, Math.min(sideLimit,
-    forward * car.yawRate * (car.drifting ? C.DRIFT_SIDE_FACTOR : 1) - lateral * (car.drifting ? C.DRIFT_GRIP : C.GRIP)));
-  const nextLateral = lateral + sideAccel * dt;
-  car.vx = fx * forward + rx * nextLateral;
-  car.vz = fz * forward + rz * nextLateral;
+  // Carry forward speed into the NEW heading. Previously the old-axis lateral
+  // force fought the turn and exhausted grip under throttle. Keep residual slip
+  // with exponential damping; drift retains more of the old world momentum.
+  const grip = car.drifting ? C.DRIFT_GRIP : C.GRIP;
+  const driftSlip = car.drifting ? -forward * car.yawRate * dt * (1 - C.DRIFT_SIDE_FACTOR) : 0;
+  const nextLateral = (lateral + driftSlip) * Math.exp(-grip * dt);
   car.h = wrapAngle(car.h + car.yawRate * dt);
+  const nextFx = Math.sin(car.h), nextFz = Math.cos(car.h);
+  car.vx = nextFx * forward + nextFz * nextLateral;
+  car.vz = nextFz * forward - nextFx * nextLateral;
   car.x += car.vx * dt;
   car.z += car.vz * dt;
 
