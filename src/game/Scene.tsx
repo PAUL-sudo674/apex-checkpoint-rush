@@ -334,7 +334,7 @@ export function Scene({ car, race, input, onEvents, onHud, onReady }: SceneProps
     if (g) {
       g.position.set(pose.x, 0, pose.z);
       g.rotation.set(0, pose.h, -c.steer * Math.min(Math.abs(c.speed) / C.MAX, 1) * 0.05);
-      spin.current += (c.speed * dt) / 0.38;
+      spin.current += ((c.vx * Math.sin(c.h) + c.vz * Math.cos(c.h)) * dt) / 0.38;
       wheels.current.forEach((w, i) => {
         w.rotation.set(spin.current, i < 2 ? c.steeringAngle : 0, 0, "YXZ");
       });

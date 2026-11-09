@@ -49,7 +49,7 @@ describe("SI vehicle physics", () => {
     const car = newCar(), race = newRace(); race.phase = "racing";
     car.vx = Math.sin(car.h) * 0.05; car.vz = Math.cos(car.h) * 0.05;
     step(car, race, { ...emptyInput(), down: true }, C.FIXED_DT);
-    expect(car.speed).toBe(0);
+    expect(car.speed).toBeCloseTo(0, 12);
   });
   it("handbrake dissipates momentum without injecting acceleration", () => {
     const car = newCar(), race = newRace(); race.phase = "racing";

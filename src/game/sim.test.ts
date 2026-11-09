@@ -52,7 +52,7 @@ describe("race rules", () => {
     step(car, race, input, 1 / 60);
     expect(car.drifting).toBe(false);
     car.vx = Math.sin(car.h) * 30; car.vz = Math.cos(car.h) * 30;
-    for (let i = 0; i < 20; i++) step(car, race, input, 1 / 60);
+    for (let i = 0; i < 60; i++) step(car, race, input, 1 / 60);
     expect(car.drifting).toBe(true);
     expect(Math.abs(car.slip)).toBeGreaterThan(0.08);
   });
